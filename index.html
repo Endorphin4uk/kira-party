@@ -98,6 +98,10 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
 .org summary{cursor:pointer;font-family:'Comfortaa','Nunito',sans-serif;font-weight:700;font-size:18px}
 .org[open] summary{margin-bottom:10px}
 #manualTxt,#imp{min-height:120px}
+.drinks{border:2px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:14px;background:var(--bg)}
+.drinks summary{cursor:pointer;font-weight:800;font-size:17px}
+.drinks .hint{margin:10px 0 0}
+.drink-link{display:block;margin-top:10px;padding:12px 14px;border-radius:14px;border:2px solid var(--accent);color:var(--accent);font-weight:800;text-decoration:none;text-align:center}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:999px;font-weight:700;opacity:0;pointer-events:none;transition:.25s;max-width:90vw;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .foot{text-align:center;color:var(--muted);font-size:14px;margin-top:24px}
@@ -146,6 +150,14 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
 
   <label class="f" for="food">Що буде їсти?</label>
   <textarea id="food" placeholder="Назви страв з меню, наприклад: паста, сік, десерт"></textarea>
+
+  <details class="drinks" id="drinkBox" hidden>
+    <summary>🥂 А за Кіри здоров’я?</summary>
+    <p class="hint">Подивіться алкогольне меню ресторану й напишіть, що питимете.</p>
+    <a class="drink-link" href="https://dragonpark-dzherelna.choiceqr.com/menu/section:alkogolni-napoyi/vermut" target="_blank" rel="noopener">🍷 Алкогольне меню ресторану</a>
+    <label class="f" for="drink">Що питимете? <small>(необов’язково)</small></label>
+    <input type="text" id="drink" placeholder="Наприклад, вермут" maxlength="120">
+  </details>
 
   <label class="f">Особливі побажання <small>(торкніться, щоб обрати)</small></label>
   <div class="chips" id="chips"></div>
@@ -247,12 +259,12 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
 
   /* form */
   function curType(){return document.querySelector('input[name=type]:checked').value}
-  function syncAge(){$('ageBox').hidden=curType()!=='kid'}
+  function syncAge(){$('ageBox').hidden=curType()!=='kid';$('drinkBox').hidden=curType()!=='adult'}
   document.querySelectorAll('input[name=type]').forEach(function(r){r.addEventListener('change',syncAge)});
 
   function resetForm(){
     editId=null;picked={};
-    $('name').value='';$('food').value='';$('notes').value='';$('age').value='';$('err').textContent='';
+    $('name').value='';$('food').value='';$('notes').value='';$('age').value='';$('err').textContent='';$('drink').value='';$('drinkBox').open=false;
     document.querySelector('input[name=type][value=adult]').checked=true;
     syncAge();drawChips();
     $('save').textContent='Додати до списку';$('cancel').hidden=true;$('formTitle').textContent='Додати гостя';
@@ -269,7 +281,8 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
       age:type==='kid'?$('age').value.trim():'',
       food:$('food').value.trim(),
       tags:NOTES.filter(function(n){return picked[n]}),
-      notes:$('notes').value.trim()
+      notes:$('notes').value.trim(),
+      drink:type==='adult'?$('drink').value.trim():''
     };
     if(editId){state.guests=state.guests.map(function(x){return x.id===editId?g:x});toast('Зміни збережено ✅')}
     else{state.guests.push(g);toast(name+' у списку 🎈')}
@@ -279,7 +292,7 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
   function edit(id){
     var g=state.guests.filter(function(x){return x.id===id})[0];if(!g)return;
     editId=id;picked={};(g.tags||[]).forEach(function(t){picked[t]=true});
-    $('name').value=g.name;$('food').value=g.food||'';$('notes').value=g.notes||'';$('age').value=g.age||'';
+    $('name').value=g.name;$('food').value=g.food||'';$('notes').value=g.notes||'';$('age').value=g.age||'';$('drink').value=g.drink||'';$('drinkBox').open=!!g.drink;
     document.querySelector('input[name=type][value='+g.type+']').checked=true;
     syncAge();drawChips();
     $('save').textContent='Зберегти зміни';$('cancel').hidden=false;$('formTitle').textContent='Змінити гостя';
@@ -307,6 +320,7 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
       var extra=(g.tags||[]).concat(g.notes?[g.notes]:[]).join(', ');
       d.innerHTML='<div class="g-top"><span class="g-name">'+esc(g.name)+'</span>'+tag+'</div>'+
         '<p class="g-food">🍴 '+(g.food?esc(g.food):'<span style="color:var(--muted)">Страву ще не обрано</span>')+'</p>'+
+        (g.drink?'<p class="g-food">🥂 '+esc(g.drink)+'</p>':'')+
         (extra?'<p class="g-note">⚠️ '+esc(extra)+'</p>':'')+
         '<div class="g-act"><button type="button" data-e="'+g.id+'">Змінити</button><button type="button" data-d="'+g.id+'">Видалити</button></div>';
       box.appendChild(d);
@@ -332,7 +346,7 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
     var L=['🎂 Kira Birthday Party (6 років)','Гостей: '+state.guests.length+' (дорослих: '+a+', дітей: '+k+')',''];
     state.guests.forEach(function(g,i){
       var line=(i+1)+'. '+g.name+' — '+(g.type==='kid'?'дитина'+(g.age?', '+g.age+' р.':''):'дорослий');
-      line+='\n   Їсть: '+(g.food||'ще не обрано');
+      line+='\n   Їсть: '+(g.food||'ще не обрано');if(g.drink)line+='\n   Питиме: '+g.drink;
       var ex=(g.tags||[]).concat(g.notes?[g.notes]:[]).join(', ');if(ex)line+='\n   Побажання: '+ex;
       L.push(line);
     });
@@ -343,18 +357,18 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
 
   /* sharing */
   var LINK=location.href.split('#')[0];
-  function enc(list){var arr=list.map(function(g){return [g.name,g.type,g.age||'',g.food||'',g.tags||[],g.notes||'']});return btoa(unescape(encodeURIComponent(JSON.stringify(arr))))}
+  function enc(list){var arr=list.map(function(g){return [g.name,g.type,g.age||'',g.food||'',g.tags||[],g.notes||'',g.drink||'']});return btoa(unescape(encodeURIComponent(JSON.stringify(arr))))}
   function dec(code){
     try{
       var arr=JSON.parse(decodeURIComponent(escape(atob(code))));
-      return arr.map(function(a){return {id:'g'+Date.now()+Math.random().toString(36).slice(2,7),name:String(a[0]||'').slice(0,60),type:a[1]==='kid'?'kid':'adult',age:String(a[2]||'').slice(0,3),food:String(a[3]||'').slice(0,400),tags:Array.isArray(a[4])?a[4].filter(function(t){return NOTES.indexOf(t)>-1}):[],notes:String(a[5]||'').slice(0,120)}}).filter(function(g){return g.name});
+      return arr.map(function(a){return {id:'g'+Date.now()+Math.random().toString(36).slice(2,7),name:String(a[0]||'').slice(0,60),type:a[1]==='kid'?'kid':'adult',age:String(a[2]||'').slice(0,3),food:String(a[3]||'').slice(0,400),tags:Array.isArray(a[4])?a[4].filter(function(t){return NOTES.indexOf(t)>-1}):[],notes:String(a[5]||'').slice(0,120),drink:String(a[6]||'').slice(0,120)}}).filter(function(g){return g.name});
     }catch(e){return []}
   }
   function buildMsg(){
     var L=['🎂 Kira Birthday Party (6 років)','Анкета гостей:'];
     state.guests.forEach(function(g){
       var ex=(g.tags||[]).concat(g.notes?[g.notes]:[]).join(', ');
-      L.push('• '+g.name+' ('+(g.type==='kid'?'дитина'+(g.age?', '+g.age+' р.':''):'дорослий')+') — їсть: '+(g.food||'ще не обрано')+(ex?'; побажання: '+ex:''));
+      L.push('• '+g.name+' ('+(g.type==='kid'?'дитина'+(g.age?', '+g.age+' р.':''):'дорослий')+') — їсть: '+(g.food||'ще не обрано')+(g.drink?'; питиме: '+g.drink:'')+(ex?'; побажання: '+ex:''));
     });
     L.push('','Код для організатора (не видаляйте): KIRA6:'+enc(state.guests));
     return L.join('\n');
@@ -383,7 +397,7 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
     var txt=$('imp').value,codes=txt.match(/KIRA6:[A-Za-z0-9+\/=]+/g)||[],added=0;
     codes.forEach(function(c){
       dec(c.slice(6)).forEach(function(g){
-        var key=function(x){return [x.name,x.type,x.food,x.notes].join('|').toLowerCase()};
+        var key=function(x){return [x.name,x.type,x.food,x.notes,x.drink||''].join('|').toLowerCase()};
         if(!state.guests.some(function(x){return key(x)===key(g)})){state.guests.push(g);added++}
       });
     });
