@@ -341,19 +341,7 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
   }
 
   /* copy */
-  $('copy').addEventListener('click',function(){
-    var a=state.guests.filter(function(g){return g.type==='adult'}).length,k=state.guests.length-a;
-    var L=['🎂 Kira Birthday Party (6 років)','Гостей: '+state.guests.length+' (дорослих: '+a+', дітей: '+k+')',''];
-    state.guests.forEach(function(g,i){
-      var line=(i+1)+'. '+g.name+' — '+(g.type==='kid'?'дитина'+(g.age?', '+g.age+' р.':''):'дорослий');
-      line+='\n   Їсть: '+(g.food||'ще не обрано');if(g.drink)line+='\n   Питиме: '+g.drink;
-      var ex=(g.tags||[]).concat(g.notes?[g.notes]:[]).join(', ');if(ex)line+='\n   Побажання: '+ex;
-      L.push(line);
-    });
-    var text=L.join('\n');
-    function fallback(){var t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();try{document.execCommand('copy');toast('Список скопійовано 📋')}catch(e){toast('Не вдалося скопіювати')}document.body.removeChild(t)}
-    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){toast('Список скопійовано 📋')},fallback)}else fallback();
-  });
+  $('copy').addEventListener('click',function(){copyOrManual(buildMsg())});
 
   /* sharing */
   var LINK=location.href.split('#')[0];
@@ -393,15 +381,27 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
     var t='Запрошуємо на день народження Кіри! 🎂 Заповніть, будь ласка, анкету: '+LINK;
     shareOut({title:'Kira Birthday Party',text:'Запрошуємо на день народження Кіри! 🎂 Заповніть, будь ласка, анкету:',url:LINK},t);
   });
-  $('impBtn').addEventListener('click',function(){
-    var txt=$('imp').value,codes=txt.match(/KIRA6:[A-Za-z0-9+\/=]+/g)||[],added=0;
-    codes.forEach(function(c){
-      dec(c.slice(6)).forEach(function(g){
-        var key=function(x){return [x.name,x.type,x.food,x.notes,x.drink||''].join('|').toLowerCase()};
-        if(!state.guests.some(function(x){return key(x)===key(g)})){state.guests.push(g);added++}
-      });
+  function parseText(t){
+    var out=[];
+    t.split(/\r?\n/).forEach(function(line){
+      var m=line.match(/^\s*[•\-\*]\s*(.+?)\s*\((дорослий|дитина)(?:,\s*(\d{1,2})\s*р\.)?\)\s*[—–-]\s*їсть:\s*(.*)$/i);
+      if(!m)return;
+      var rest=m[4],notes='',drink='',ni=rest.indexOf('; побажання: ');
+      if(ni>-1){notes=rest.slice(ni+13);rest=rest.slice(0,ni)}
+      var di=rest.indexOf('; питиме: ');
+      if(di>-1){drink=rest.slice(di+10);rest=rest.slice(0,di)}
+      rest=rest.trim();
+      out.push({id:'g'+Date.now()+Math.random().toString(36).slice(2,7),name:m[1].slice(0,60),type:/дитина/i.test(m[2])?'kid':'adult',age:m[3]||'',food:/^ще не обрано$/i.test(rest)?'':rest.slice(0,400),tags:[],notes:notes.trim().slice(0,120),drink:drink.trim().slice(0,120)});
     });
-    if(!added){$('impErr').textContent=codes.length?'Ці гості вже є у списку':'Не знайшла анкет у вставленому тексті. Скопіюйте повідомлення цілком, разом із рядком «Код для організатора».';return}
+    return out;
+  }
+  $('impBtn').addEventListener('click',function(){
+    var txt=$('imp').value,codes=txt.match(/KIRA6:[A-Za-z0-9+\/=]+/g)||[],added=0,found=[];
+    codes.forEach(function(c){found=found.concat(dec(c.slice(6)))});
+    if(!codes.length)found=parseText(txt);
+    var key=function(x){return [x.name,x.type,x.food,x.notes,x.drink||''].join('|').toLowerCase()};
+    found.forEach(function(g){if(!state.guests.some(function(x){return key(x)===key(g)})){state.guests.push(g);added++}});
+    if(!added){$('impErr').textContent=found.length?'Ці гості вже є у списку':'Не знайшла анкет у вставленому тексті. Скопіюйте повідомлення цілком, разом із рядком «Код для організатора».';return}
     $('impErr').textContent='';$('imp').value='';save();render();toast('Додано гостей: '+added+' 🎈');
   });
 
