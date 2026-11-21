@@ -287,7 +287,6 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
   }
   function del(id){
     var g=state.guests.filter(function(x){return x.id===id})[0];if(!g)return;
-    if(!confirm('Видалити «'+g.name+'» зі списку?'))return;
     state.guests=state.guests.filter(function(x){return x.id!==id});save();render();
     if(editId===id)resetForm();
   }
@@ -313,7 +312,18 @@ input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
       box.appendChild(d);
     });
     box.querySelectorAll('[data-e]').forEach(function(b){b.addEventListener('click',function(){edit(b.getAttribute('data-e'))})});
-    box.querySelectorAll('[data-d]').forEach(function(b){b.addEventListener('click',function(){del(b.getAttribute('data-d'))})});
+    box.querySelectorAll('[data-d]').forEach(function(b){
+      var armed=false,timer;
+      function reset(){armed=false;b.textContent='Видалити';b.style.background='';b.style.color='';b.style.borderColor=''}
+      b.addEventListener('click',function(){
+        if(!armed){
+          armed=true;b.textContent='Точно видалити?';
+          b.style.background='var(--accent)';b.style.color='var(--accent-ink)';b.style.borderColor='var(--accent)';
+          timer=setTimeout(reset,3000);return;
+        }
+        clearTimeout(timer);del(b.getAttribute('data-d'));toast('Гостя видалено');
+      });
+    });
   }
 
   /* copy */
